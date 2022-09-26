@@ -2,8 +2,12 @@ import os
 import hashlib
 import argparse
 import shutil
+import time
 
-debug_enable = True
+debug_enable = False
+
+def instr_prnt(*args) :
+	print("INSTR : ", *args)
 
 
 def err(*args) :
@@ -38,34 +42,69 @@ def file_hash(filepath) :
 def get_file_hash(filename) :
 	return [filename, file_hash(filename)]
 	
+def movefiles(filelist, mdir) :
+	dbg("Moving files ", filelist, " to ", mdir)
+
+	def moveone(file) :
+		tfile = file
+		tfile = tfile.replace('\\', '_')
+		tfile = tfile.replace(':', '_')
+		tpath=os.path.join(mdir, tfile)
+		dbg("Moving file ", file, " to ", tpath)
+		try :
+			shutil.move(file, tpath)
+		except :
+			err("Moving file ", file, " to ", mdir, " failed !!!")
+	list(map(moveone, filelist))
+
 if __name__ == '__main__' :
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--dir", help="provide the basedirectory", required=True)
-	parser.add_argument("--mdir", help="provide the directory to move", required=True)
-	parser.add_argument("--debug", help="provide the basedirectory")
+	parser.add_argument("--mdir", help="provide the directory to move")
+	parser.add_argument("--debug", help="enable debug")
 
 	args = parser.parse_args()
 	dirname=args.dir
-	mdirname=args.mdir
+	mdir=args.mdir
 	if args.debug :
 		debug_enable = True
 	filenames=[]
+
+	st = time.time()
 	for root, dirname, fnames in os.walk(dirname) :
 		for fname in fnames :
 			filenames.append(os.path.join(root, fname))
+	et = time.time()
+	instr_prnt("Get List of files : ", et - st)
 
+	st = time.time()
 	hlist = map(get_file_hash, filenames)
-#	print(list(hlist))
+	et = time.time()
+	instr_prnt("Hash of files : ", et - st)
+
+	st = time.time()
 	hmap={}
 	for i in hlist :
 		if hmap.get(i[1]) :
 			hmap[i[1]].append(i[0])
 		else :
 			hmap[i[1]] = [i[0]]
-#print(hmap)
-
+	duplist=[]
+	origlist=[]
 	for f in hmap.values() :
 		if len(f) > 1 :
-			print(find_dup(f))
+			duplist.append(find_dup(f))
 		else :
-			dbg("No duplicate for file", f[0])
+			origlist.append(f[0])
+	filesToMove=[filename for resultdict in duplist for filename in resultdict["dup"]]
+	et = time.time()
+	instr_prnt("Finding dup : ", et - st)
+
+	print("DUP : ", duplist)
+	print("ORIG : ", origlist)
+	dbg(filesToMove)
+	if mdir is not None:
+		st = time.time()
+		movefiles(filesToMove, mdir)
+		et = time.time()
+		instr_prnt("Time to move files : ", et - st)
