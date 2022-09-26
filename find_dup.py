@@ -69,6 +69,7 @@ if __name__ == '__main__' :
 	if args.debug :
 		debug_enable = True
 
+# Create a list of files
 	st = time.time()
 	filenames=[]
 	for root, dirname, fnames in os.walk(dirname) :
@@ -77,11 +78,13 @@ if __name__ == '__main__' :
 	et = time.time()
 	instr_prnt("Get List of files : ", et - st)
 
+# Calculate the hash of all the files
 	st = time.time()
 	hlist = list(map(get_file_hash, filenames))
 	et = time.time()
 	instr_prnt("Hash of files : ", et - st)
 
+# Find duplicate from the hashlist (files with same hash)
 	st = time.time()
 	hmap={}
 	for i in hlist :
@@ -91,6 +94,8 @@ if __name__ == '__main__' :
 			hmap[i[1]] = [i[0]]
 	duplist=[]
 	origlist=[]
+	#separate the list to duplicate (multiple entries for same hash)
+	# and original list (only one entry for one hash)
 	for f in hmap.values() :
 		if len(f) > 1 :
 			duplist.append(find_dup(f))
@@ -103,6 +108,7 @@ if __name__ == '__main__' :
 #	print("ORIG : ", origlist)
 	if mdir is not None:
 		st = time.time()
+		#flatten the list of lists
 		filesToMove=[filename for resultdict in duplist for filename in resultdict["dup"]]
 		et = time.time()
 		instr_prnt("Make list of files to move : ", et - st)
