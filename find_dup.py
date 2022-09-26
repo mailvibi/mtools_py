@@ -3,7 +3,8 @@ import hashlib
 import argparse
 import shutil
 
-debug_enable = False
+debug_enable = True
+
 
 def err(*args) :
 	print("ERROR : ", *args)
@@ -13,59 +14,29 @@ def dbg(*args) :
 	if debug_enable :
 		print("DEBUG : ", *args)
 
-def find_dup_files_in_dir(dir, mdir) :
-	files_hash = {}
-	if not os.path.isdir(dir) :
-		err("Invalid dir : ", dir)
-		return False 
-	f = os.listdir(dir)
-	if not f :
-		err("No files in : ", dir)
-		return False 
-	for i in f :
-		filepath = os.path.join(dir,i)
-		sinfo = os.stat(filepath)
-		if sinfo.st_size > 1024 :
-			dbg("Size of file ", filepath, " : ", sinfo.st_size);
-		if os.path.isfile(filepath) :
-			fh = hashlib.sha256()
-			with open(filepath, "rb") as fp:
-				while True :
-					b = fp.read(20 * 1024 * 1024)
-					if b :
-						fh.update(b)
-					else :
-						break
-			h = fh.hexdigest()
-			dbg("filename : ", filepath, " hash : ", h)
-			if files_hash.get(h) :
-				orig = ""
-				dup = ""
-				if filepath.find("(") != -1 :
-					dup = filepath
-					orig = files_hash[h]
-				elif files_hash[h].find("(") != -1 :
-					orig = filepath
-					dup = files_hash[h]
-					files_hash[h] = filepath
-				else :
-					dup = filepath
-					orig = files_hash[h]					
-				print()
-				print("--------->", "Found duplicate [orig : ", orig, "] [duplicate :", dup, "]")
-				dfilename = dup 
-				d=dfilename.replace('\\', '_')
-				ddir=os.path.join(mdir, d)
-				try :
-					shutil.move(dup, ddir)
-				except :
-					print("error in move : ddir : ", ddir, "dfilename : ", dfilename)
-					raise
-			else :
-				files_hash[h] = filepath
+def find_dup(filelist) :
+	res = {"orig" : [], "dup" : []}
+	for file in filelist :
+		if "Copy" in file :
+			res["dup"].append(file)
 		else :
-			err("Skipping non-file !!! --> ", filepath)
-	
+			res["orig"].append(file)
+	return res
+
+def file_hash(filepath) :
+	fh = hashlib.sha256()
+	with open(filepath, "rb") as fp:
+		while True :
+			b = fp.read(20 * 1024 * 1024)
+			if b :
+				fh.update(b)
+			else :
+				break
+	h = fh.hexdigest()
+	return h
+
+def get_file_hash(filename) :
+	return [filename, file_hash(filename)]
 	
 if __name__ == '__main__' :
 	parser = argparse.ArgumentParser()
@@ -78,16 +49,23 @@ if __name__ == '__main__' :
 	mdirname=args.mdir
 	if args.debug :
 		debug_enable = True
-	alldirs = os.listdir(dirname)
-	cnt = 0
-	for d in alldirs :
-		dbg("Scannin dir ", d)
-		print(".", end=" ", flush=True)
-		cnt = cnt + 1
-		if (cnt % 20) == 0 :
-			print("")
-		dpath = os.path.join(dirname, d)
-		if not os.path.isdir(dpath) :
-			err(dpath, "is not a directory - check why it is preset in top dir")
-			continue
-		find_dup_files_in_dir(dpath, mdirname)
+	filenames=[]
+	for root, dirname, fnames in os.walk(dirname) :
+		for fname in fnames :
+			filenames.append(os.path.join(root, fname))
+
+	hlist = map(get_file_hash, filenames)
+#	print(list(hlist))
+	hmap={}
+	for i in hlist :
+		if hmap.get(i[1]) :
+			hmap[i[1]].append(i[0])
+		else :
+			hmap[i[1]] = [i[0]]
+#print(hmap)
+
+	for f in hmap.values() :
+		if len(f) > 1 :
+			print(find_dup(f))
+		else :
+			dbg("No duplicate for file", f[0])
