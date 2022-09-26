@@ -68,9 +68,9 @@ if __name__ == '__main__' :
 	mdir=args.mdir
 	if args.debug :
 		debug_enable = True
-	filenames=[]
 
 	st = time.time()
+	filenames=[]
 	for root, dirname, fnames in os.walk(dirname) :
 		for fname in fnames :
 			filenames.append(os.path.join(root, fname))
@@ -78,7 +78,7 @@ if __name__ == '__main__' :
 	instr_prnt("Get List of files : ", et - st)
 
 	st = time.time()
-	hlist = map(get_file_hash, filenames)
+	hlist = list(map(get_file_hash, filenames))
 	et = time.time()
 	instr_prnt("Hash of files : ", et - st)
 
@@ -96,14 +96,19 @@ if __name__ == '__main__' :
 			duplist.append(find_dup(f))
 		else :
 			origlist.append(f[0])
-	filesToMove=[filename for resultdict in duplist for filename in resultdict["dup"]]
 	et = time.time()
 	instr_prnt("Finding dup : ", et - st)
 
 	print("DUP : ", duplist)
-	print("ORIG : ", origlist)
-	dbg(filesToMove)
+#	print("ORIG : ", origlist)
 	if mdir is not None:
+		st = time.time()
+		filesToMove=[filename for resultdict in duplist for filename in resultdict["dup"]]
+		et = time.time()
+		instr_prnt("Make list of files to move : ", et - st)
+
+		dbg(filesToMove)
+
 		st = time.time()
 		movefiles(filesToMove, mdir)
 		et = time.time()
