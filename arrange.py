@@ -63,7 +63,15 @@ def exif_get_creation_date(media_file) :
         return datetime.strptime(str(media_date), "%Y:%m:%d %H:%M:%S")
     return None
 
-def get_media_file_creation_date(media_file):
+handlers = {
+    ".jpg" : [exif_get_creation_date,get_creation_date_from_filename],
+    ".heic" : [exif_get_creation_date,get_creation_date_from_filename],
+#    ".mov" : [exiftool_get_creation_date],
+#    ".mp4" : [exiftool_get_creation_date],
+}
+
+def get_media_file_creation_date_old(media_file):
+
     d = exif_get_creation_date(media_file)
     if d :
         return d
@@ -71,6 +79,19 @@ def get_media_file_creation_date(media_file):
     if d :
         return d
     return None
+
+def get_media_file_creation_date(media_file) :
+    ext = pathlib.Path(media_file).suffix.lower()
+    hfunc = handlers.get(ext)
+    if not hfunc :
+        lg.err("No matching handlers for ", media_file)
+        return None
+    mdate = None
+    for func in hfunc :
+        mdate = func(media_file)
+        if mdate :
+            return mdate
+    return mdate
 
 def arrange_media_file(media_file, dest_dir, logonly = False):
     lg.dbg("Arranging file :", media_file)
@@ -105,7 +126,7 @@ if __name__ == "__main__" :
     argparser.add_argument("--logonly", action="store_true")
     argparser.add_argument("--d", action = "store_true")
     args = argparser.parse_args()
-    supported_extensions = [".JPG", ".HEIC"]
+    supported_extensions = [".JPG", ".HEIC", ]
 #    srcdir = pathlib.Path(args.srcdir)
 #    dstdir = pathlib.Path(args.dstdir)
     srcdir = args.srcdir
