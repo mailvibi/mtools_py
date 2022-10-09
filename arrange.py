@@ -12,9 +12,17 @@ def exiftool_get_creation_date(media_file) :
     lg.dbg("Trying to get date using exiftool")
     e = exiftoolwrap.exiftoolWrap('D:\Hobbies\mtools\py\exiftool.exe', True)
     tags = e.process_file(media_file)
-    if len(tags) and 'Create Date' in tags:
-        media_date = tags['Create Date']
-        lg.dbg("found Image DateTime tag = ", media_date)
+    if len(tags) :
+        media_date = ""
+        if 'Create Date' in tags:
+            media_date = tags['Create Date']
+            lg.dbg("found Image - Create Date - tag = ", media_date)
+        elif 'Date/Time Original' in tags :
+            media_date = tags['Date/Time Original']
+            lg.dbg("found Image - Date/Time Original - tag = ", media_date)
+        else :
+            lg.dbg("exiftool too did not find tags in file ->", media_file)
+            return None
         media_date = media_date.split(' ')[0].strip()
         lg.dbg("found Image DateTime tag = ", media_date)
         try :
@@ -71,6 +79,9 @@ handlers = {
     ".heic" : [exif_get_creation_date,get_creation_date_from_filename],
     ".mov" : [exiftool_get_creation_date, get_creation_date_from_filename],
     ".mp4" : [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".3gp" : [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".m2ts" : [exiftool_get_creation_date, get_creation_date_from_filename], 
+    ".mts" : [exiftool_get_creation_date, get_creation_date_from_filename], 
 }
 
 def get_media_file_creation_date(media_file) :
@@ -117,15 +128,20 @@ if __name__ == "__main__" :
     argparser.add_argument("--srcdir", required=True)
     argparser.add_argument("--dstdir", required=True)
     argparser.add_argument("--logfile")
+    argparser.add_argument("--recurse", action="store_true")
     argparser.add_argument("--logonly", action="store_true")
     argparser.add_argument("--d", action = "store_true")
     args = argparser.parse_args()
-    supported_extensions = [".JPG", ".HEIC", ".MOV", ".MP4"]
+#    supported_extensions = [".JPG", ".HEIC", ".MOV", ".MP4", ".3gp", ".m2ts", ".MTS"]
+    supported_extensions = handlers.keys()
+    u_supported_ext=list(map(lambda x : x.upper(), supported_extensions))
+
 #    srcdir = pathlib.Path(args.srcdir)
 #    dstdir = pathlib.Path(args.dstdir)
     srcdir = args.srcdir
     dstdir = args.dstdir
     logonly = args.logonly
+    recurse = args.recurse
 
     lg = mlog.log(args.logfile, args.d)
     #repr(srcdir)
@@ -135,12 +151,19 @@ if __name__ == "__main__" :
     if not os.path.isdir(dstdir) :
         lg.err("Destination directory[{}] Invalid", dstdir)
         sys.exit()
-    files=list(filter( lambda x : os.path.isfile(os.path.join(srcdir, x)) , os.listdir(srcdir)))
+    
+    files = []
+    if recurse :
+        for root, dirname, fnames in os.walk(srcdir) :
+            for fname in fnames :
+                files.append(os.path.join(root, fname))
+    else :
+        files=list(filter( lambda x : os.path.isfile(os.path.join(srcdir, x)) , os.listdir(srcdir)))
 #    lg.dbg(files)
+    lg.dbg("supported extensions : ", supported_extensions)
     lg.dbg("Found {} files in directory {}".format(len(files), srcdir))
-    l_supported_ext=list(map(lambda x : x.lower(), supported_extensions))
-    file_with_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix in supported_extensions or pathlib.Path(x).suffix in l_supported_ext, files))
-    file_without_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix not in supported_extensions and pathlib.Path(x).suffix not in l_supported_ext, files))
+    file_with_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix in supported_extensions or pathlib.Path(x).suffix in u_supported_ext, files))
+    file_without_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix not in supported_extensions and pathlib.Path(x).suffix not in u_supported_ext, files))
     if len(file_without_supported_extension) :
         lg.err("files with out supported extension :->")
         lg.err(file_without_supported_extension)
