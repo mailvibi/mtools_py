@@ -3,20 +3,7 @@ import hashlib
 import argparse
 import shutil
 import time
-
-debug_enable = False
-
-def instr_prnt(*args) :
-	print("INSTR : ", *args)
-
-
-def err(*args) :
-	print("ERROR : ", *args)
-
-def dbg(*args) :
-	global debug_enable
-	if debug_enable :
-		print("DEBUG : ", *args)
+import mlog 
 
 def find_dup(filelist) :
 	res = {"orig" : [], "dup" : []}
@@ -43,31 +30,31 @@ def get_file_hash(filename) :
 	return [filename, file_hash(filename)]
 	
 def movefiles(filelist, mdir) :
-	dbg("Moving files ", filelist, " to ", mdir)
+	lg.dbg("Moving files ", filelist, " to ", mdir)
 
 	def moveone(file) :
 		tfile = file
 		tfile = tfile.replace('\\', '_')
 		tfile = tfile.replace(':', '_')
 		tpath=os.path.join(mdir, tfile)
-		dbg("Moving file ", file, " to ", tpath)
+		lg.dbg("Moving file ", file, " to ", tpath)
 		try :
 			shutil.move(file, tpath)
 		except :
-			err("Moving file ", file, " to ", mdir, " failed !!!")
+			lg.err("Moving file ", file, " to ", mdir, " failed !!!")
 	list(map(moveone, filelist))
 
 if __name__ == '__main__' :
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--dir", help="provide the basedirectory", required=True)
 	parser.add_argument("--mdir", help="provide the directory to move")
-	parser.add_argument("--debug", help="enable debug")
+	parser.add_argument("--debug", action="store_true", help="enable debug")
 
 	args = parser.parse_args()
 	dirname=args.dir
 	mdir=args.mdir
-	if args.debug :
-		debug_enable = True
+
+	lg = mlog.log(None, args.debug)
 
 # Create a list of files
 	st = time.time()
@@ -76,13 +63,13 @@ if __name__ == '__main__' :
 		for fname in fnames :
 			filenames.append(os.path.join(root, fname))
 	et = time.time()
-	instr_prnt("Get List of files : ", et - st)
+	lg.info("Get List of files : ", et - st)
 
 # Calculate the hash of all the files
 	st = time.time()
 	hlist = list(map(get_file_hash, filenames))
 	et = time.time()
-	instr_prnt("Hash of files : ", et - st)
+	lg.info("Hash of files : ", et - st)
 
 # Find duplicate from the hashlist (files with same hash)
 	st = time.time()
@@ -102,20 +89,22 @@ if __name__ == '__main__' :
 		else :
 			origlist.append(f[0])
 	et = time.time()
-	instr_prnt("Finding dup : ", et - st)
+	lg.info("Finding dup : ", et - st)
 
-	print("DUP : ", duplist)
-#	print("ORIG : ", origlist)
+	lg.dbg("DUP : ", duplist)
+	lg.dbg("ORIG : ", origlist)
 	if mdir is not None:
 		st = time.time()
 		#flatten the list of lists
 		filesToMove=[filename for resultdict in duplist for filename in resultdict["dup"]]
 		et = time.time()
-		instr_prnt("Make list of files to move : ", et - st)
+		lg.info("Make list of files to move : ", et - st)
 
-		dbg(filesToMove)
+		lg.dbg(filesToMove)
 
 		st = time.time()
 		movefiles(filesToMove, mdir)
 		et = time.time()
-		instr_prnt("Time to move files : ", et - st)
+		lg.info("Time to move files : ", et - st)
+	else :
+		lg.info("DUP : ", duplist)
