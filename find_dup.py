@@ -3,15 +3,28 @@ import hashlib
 import argparse
 import shutil
 import time
-import mlog 
-
+import mlog
+import sys
+import json
 def find_dup(filelist) :
-	res = {"orig" : [], "dup" : []}
-	for file in filelist :
-		if "Copy" in file :
-			res["dup"].append(file)
+	res = {"orig": [], "dup": []}
+	orig = []
+	dup = []
+	for f in filelist:
+		if "Copy" in f:
+			dup.append(f)
 		else :
-			res["orig"].append(file)
+			orig.append(f)
+	if len(orig) > 1:
+		neworig = []
+		for f in orig:
+			if "(" in f:
+				dup.append(f)
+			else:
+				neworig.append(f)
+		orig = neworig
+	res["orig"] = orig
+	res["dup"] = dup
 	return res
 
 def file_hash(filepath) :
@@ -46,15 +59,16 @@ def movefiles(filelist, mdir) :
 
 if __name__ == '__main__' :
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--dir", help="provide the basedirectory", required=True)
-	parser.add_argument("--mdir", help="provide the directory to move")
+	parser.add_argument("--dir", help="provide the base directory to check for duplicate files", required=True)
+	parser.add_argument("--mdir", help="provide the directory to move duplicate files")
+	parser.add_argument("--json", help="json file to output the duplicate file information")
 	parser.add_argument("--debug", action="store_true", help="enable debug")
 
 	args = parser.parse_args()
 	dirname=args.dir
 	mdir=args.mdir
 
-	lg = mlog.log(None, args.debug)
+	lg = mlog.log("13Jan", args.debug)
 
 # Create a list of files
 	st = time.time()
@@ -64,6 +78,19 @@ if __name__ == '__main__' :
 			filenames.append(os.path.join(root, fname))
 	et = time.time()
 	lg.info("Get List of files : ", et - st)
+
+	lg.dbg("number of files : ", len(filenames))
+# Group file based on size and take only files which have equal size
+	szmap = {}
+	for file in filenames:
+		sz = os.stat(file).st_size
+		if szmap.get(sz):
+			szmap[sz].append(file)
+		else:
+			szmap[sz] = [file]
+	filelist = [j for i in szmap.values() for j in i if len(i) > 1]
+	filenames = filelist
+	lg.dbg("number of files filtered based on length: ", len(filenames))
 
 # Calculate the hash of all the files
 	st = time.time()
@@ -93,6 +120,10 @@ if __name__ == '__main__' :
 
 	lg.dbg("DUP : ", duplist)
 	lg.dbg("ORIG : ", origlist)
+	if args.json:
+		with open(args.json, "w") as jf:
+			jstr = json.dumps(duplist, indent=4)
+			jf.write(jstr)
 	if mdir is not None:
 		st = time.time()
 		#flatten the list of lists
@@ -106,5 +137,3 @@ if __name__ == '__main__' :
 		movefiles(filesToMove, mdir)
 		et = time.time()
 		lg.info("Time to move files : ", et - st)
-	else :
-		lg.info("DUP : ", duplist)
