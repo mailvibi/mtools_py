@@ -96,7 +96,7 @@ def exif_get_creation_date(media_file) :
             media_date = tags['EXIF File Modification Date/Time']
             lg.dbg("found Image DateTime tag = ", media_date)
         else :
-            lg.err("No DateTime tags available for file ->", media_file)
+            lg.err("exif_get_creation_date -> No DateTime tags available for file ->", media_file)
             return None
         return datetime.strptime(str(media_date), "%Y:%m:%d %H:%M:%S")
     return None
@@ -110,7 +110,7 @@ handlers = {
                 exif_get_creation_date, get_creation_date_from_filename,
                 exiftool_get_creation_date, exiftool_get_creation_date_extened
             ],
-    ".png": [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".png": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
     ".mov": [exiftool_get_creation_date, get_creation_date_from_filename],
     ".mp4": [exiftool_get_creation_date, get_creation_date_from_filename],
     ".3gp": [exiftool_get_creation_date, get_creation_date_from_filename],
@@ -157,7 +157,7 @@ def arrange_media_file(media_file, dest_dir, logonly = True):
             thash = file_hash.get_file_hash(targetfile)
             shash = file_hash.get_file_hash(media_file)
             if thash[1] == shash[1]:
-                lg.info("target file {} and source file {} seems to be same. Skipping copying", targetfile, media_file)
+                lg.dbg("target file {} and source file {} seems to be same. Skipping copying...".format(targetfile, media_file))
                 return
             #append __1 to the file name & hope this file does not exist"
             tmp_media_file = os.path.basename(media_file).split(".")
@@ -169,8 +169,8 @@ def arrange_media_file(media_file, dest_dir, logonly = True):
         lg.info("[MOVE][{}]-[{}]".format(media_file, media_dir))
         if not logonly:
             shutil.move(media_file, media_dir)
-    except :
-        lg.err("error while moving file {} to directory {}".format(media_file, media_dir))
+    except Exception as e:
+        lg.err("error -> {} - while moving file {} to directory {}".format(repr(e), media_file, media_dir))
 
 if __name__ == "__main__" :
     argparser = argparse.ArgumentParser()
