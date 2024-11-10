@@ -8,9 +8,34 @@ from datetime import datetime
 import exifread
 import exiftoolwrap
 
+def exiftool_get_creation_date_extened(media_file):
+    lg.dbg("Trying to get date using exiftool")
+    e = exiftoolwrap.exiftoolWrap(r'D:\Hobbies\mtools\py\exiftool.exe', True)
+    tags = e.process_file(media_file)
+    if len(tags) :
+        media_date = ""
+        if 'File Creation Date/Time' in tags:
+            media_date = tags['File Creation Date/Time']
+            lg.dbg("found Image - Create Date - tag = ", media_date)
+        else :
+            lg.dbg("exiftool - extened search too did not find tags in file ->", media_file)
+            return None
+        media_date = media_date.split(' ')[0].strip()
+        lg.dbg("found Image DateTime tag = ", media_date)
+        try :
+            mdate = datetime.strptime(str(media_date), "%Y:%m:%d")
+            return mdate
+        except :
+            lg.dbg("unable to get date for file : ", media_file)
+            return None
+    else :
+        lg.dbg("exiftool too did not find tags in file ->", media_file)
+        return None
+
+
 def exiftool_get_creation_date(media_file) :
     lg.dbg("Trying to get date using exiftool")
-    e = exiftoolwrap.exiftoolWrap('D:\Hobbies\mtools\py\exiftool.exe', True)
+    e = exiftoolwrap.exiftoolWrap(r'D:\Hobbies\mtools\py\exiftool.exe', True)
     tags = e.process_file(media_file)
     if len(tags) :
         media_date = ""
@@ -75,13 +100,20 @@ def exif_get_creation_date(media_file) :
     return None
 
 handlers = {
-    ".jpg" : [exif_get_creation_date,get_creation_date_from_filename],
-    ".heic" : [exif_get_creation_date,get_creation_date_from_filename],
-    ".mov" : [exiftool_get_creation_date, get_creation_date_from_filename],
-    ".mp4" : [exiftool_get_creation_date, get_creation_date_from_filename],
-    ".3gp" : [exiftool_get_creation_date, get_creation_date_from_filename],
-    ".m2ts" : [exiftool_get_creation_date, get_creation_date_from_filename], 
-    ".mts" : [exiftool_get_creation_date, get_creation_date_from_filename], 
+    ".jpg": [
+                exif_get_creation_date, get_creation_date_from_filename,
+                exiftool_get_creation_date_extened
+            ],
+    ".heic": [
+                exif_get_creation_date, get_creation_date_from_filename,
+                exiftool_get_creation_date, exiftool_get_creation_date_extened
+            ],
+    ".png": [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".mov": [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".mp4": [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".3gp": [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".m2ts": [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".mts": [exiftool_get_creation_date, get_creation_date_from_filename],
 }
 
 def get_media_file_creation_date(media_file) :
@@ -97,7 +129,7 @@ def get_media_file_creation_date(media_file) :
             return mdate
     return mdate
 
-def arrange_media_file(media_file, dest_dir, logonly = False):
+def arrange_media_file(media_file, dest_dir, logonly = True):
     lg.dbg("X" * 50)
     lg.dbg("Arranging file :", media_file)
     creation_date = get_media_file_creation_date(media_file)
@@ -114,11 +146,20 @@ def arrange_media_file(media_file, dest_dir, logonly = False):
     media_dir = os.path.join(year_dir,   media_dir)
     if not os.path.isdir(media_dir) :
         lg.dbg("Media dir {} does not exist, so creating it".format(media_dir))
-        if not logonly :
+        if not logonly:
             os.mkdir(media_dir)
-    try :
+    else:
+        targetfile = os.path.join(media_dir, os.path.basename(media_file))
+        if os.path.exists(targetfile):
+            #append __1 to the file name & hope this file does not exist"
+            tmp_media_file = os.path.basename(media_file).split(".")
+            tmp_target_media_file_name = tmp_media_file[:-1] + ["__1."] + tmp_media_file[-1:]
+            newtargetfile = os.path.join(media_dir,"".join(tmp_target_media_file_name))
+            lg.info("target file {} already exists, changing name to {}".format(targetfile, newtargetfile))
+            media_dir = newtargetfile
+    try:
         lg.info("[MOVE][{}]-[{}]".format(media_file, media_dir))
-        if not logonly :
+        if not logonly:
             shutil.move(media_file, media_dir)
     except :
         lg.err("error while moving file {} to directory {}".format(media_file, media_dir))
@@ -153,21 +194,21 @@ if __name__ == "__main__" :
         sys.exit()
     
     files = []
-    if recurse :
+    if recurse:
         for root, dirname, fnames in os.walk(srcdir) :
             for fname in fnames :
                 files.append(os.path.join(root, fname))
-    else :
-        files=list(filter( lambda x : os.path.isfile(os.path.join(srcdir, x)) , os.listdir(srcdir)))
+    else:
+        files = list(filter(lambda x: os.path.isfile(os.path.join(srcdir, x)), os.listdir(srcdir)))
 #    lg.dbg(files)
     lg.dbg("supported extensions : ", supported_extensions)
     lg.dbg("Found {} files in directory {}".format(len(files), srcdir))
     file_with_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix in supported_extensions or pathlib.Path(x).suffix in u_supported_ext, files))
     file_without_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix not in supported_extensions and pathlib.Path(x).suffix not in u_supported_ext, files))
-    if len(file_without_supported_extension) :
-        lg.err("files with out supported extension :->")
+    if len(file_without_supported_extension):
+        lg.err("files with out supported extension (These files will not be processed) :->")
         lg.err(file_without_supported_extension)
-        lg.err("These files will not be processed")
+        lg.err("-" * 30)
     if not len(file_with_supported_extension) :
         lg.err("No files with supported extension to be processed")
         sys.exit()
