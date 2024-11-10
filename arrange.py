@@ -3,10 +3,12 @@ import sys
 import argparse
 import pathlib
 import shutil
-import mlog
 from datetime import datetime
 import exifread
 import exiftoolwrap
+
+import mlog
+import file_hash
 
 def exiftool_get_creation_date_extened(media_file):
     lg.dbg("Trying to get date using exiftool")
@@ -151,6 +153,12 @@ def arrange_media_file(media_file, dest_dir, logonly = True):
     else:
         targetfile = os.path.join(media_dir, os.path.basename(media_file))
         if os.path.exists(targetfile):
+            lg.dbg("file ", targetfile, " exists. Checking if they are same")
+            thash = file_hash.get_file_hash(targetfile)
+            shash = file_hash.get_file_hash(media_file)
+            if thash[1] == shash[1]:
+                lg.info("target file {} and source file {} seems to be same. Skipping copying", targetfile, media_file)
+                return
             #append __1 to the file name & hope this file does not exist"
             tmp_media_file = os.path.basename(media_file).split(".")
             tmp_target_media_file_name = tmp_media_file[:-1] + ["__1."] + tmp_media_file[-1:]
