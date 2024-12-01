@@ -111,11 +111,11 @@ handlers = {
                 exiftool_get_creation_date, exiftool_get_creation_date_extened
             ],
     ".png": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
-    ".mov": [exiftool_get_creation_date, get_creation_date_from_filename],
-    ".mp4": [exiftool_get_creation_date, get_creation_date_from_filename],
-    ".3gp": [exiftool_get_creation_date, get_creation_date_from_filename],
-    ".m2ts": [exiftool_get_creation_date, get_creation_date_from_filename],
-    ".mts": [exiftool_get_creation_date, get_creation_date_from_filename],
+    ".mov": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
+    ".mp4": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
+    ".3gp": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
+    ".m2ts": [exiftool_get_creation_date, get_creation_date_from_filename,  exiftool_get_creation_date_extened],
+    ".mts": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
 }
 
 def get_media_file_creation_date(media_file) :
