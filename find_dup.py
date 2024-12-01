@@ -112,6 +112,10 @@ if __name__ == '__main__':
     if args.ijson and not args.mdir:
         print("--ijson requires --mdir")
         sys.exit(1)
+    if not args.ijson and not args.dir:
+        print("--ijson or --dir should be provided")
+        sys.exit(1)
+
     lg = mlog.log("13Jan", args.debug)
 
     if not args.ijson:
