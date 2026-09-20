@@ -2,16 +2,14 @@ import os
 import sys
 import argparse
 import pathlib
-import re
 import shutil
 from dataclasses import dataclass, field
-from datetime import datetime
-import exifread
 import exiftoolwrap
 import pprint
 
 import mlog
 import file_hash
+from media_date import get_media_file_creation_date, handlers
 
 MOVE_FILE = False
 #MOVE_FILE = True
@@ -50,138 +48,10 @@ class ProcessingReport:
         logger.info("#" * 50)
 
 
-def exiftool_get_creation_date_extened(media_file):
-    lg.dbg("Trying to get date (extended) using exiftool")
-    e = exiftoolwrap.exiftoolWrap(exiftool_path, True)
-    tags = e.process_file(media_file)
-    if len(tags) :
-        media_date = ""
-        if 'File Creation Date/Time' in tags:
-            media_date = tags['File Creation Date/Time']
-            lg.dbg("found Image - Create Date - tag = ", media_date)
-        else :
-            lg.dbg("exiftool - extened search too did not find tags in file ->", media_file)
-            return None
-        media_date = media_date.split(' ')[0].strip()
-        lg.dbg("found Image DateTime tag = ", media_date)
-        try :
-            mdate = datetime.strptime(str(media_date), "%Y:%m:%d")
-            return mdate
-        except :
-            lg.dbg("unable to get date for file : ", media_file)
-            return None
-    else :
-        lg.dbg("exiftool too did not find tags in file ->", media_file)
-        return None
-
-
-def exiftool_get_creation_date(media_file) :
-    lg.dbg("Trying to get date using exiftool")
-    e = exiftoolwrap.exiftoolWrap(exiftool_path, True)
-    tags = e.process_file(media_file)
-    if len(tags) :
-        media_date = ""
-        if 'Create Date' in tags:
-            media_date = tags['Create Date']
-            lg.dbg("found Image - Create Date - tag = ", media_date)
-        elif 'Date/Time Original' in tags :
-            media_date = tags['Date/Time Original']
-            lg.dbg("found Image - Date/Time Original - tag = ", media_date)
-        else :
-            lg.dbg("exiftool too did not find tags in file ->", media_file)
-            return None
-        media_date = media_date.split(' ')[0].strip()
-        lg.dbg("found Image DateTime tag = ", media_date)
-        try :
-            mdate = datetime.strptime(str(media_date), "%Y:%m:%d")
-            return mdate
-        except :
-            lg.dbg("unable to get date for file : ", media_file)
-            return None
-    else :
-        lg.dbg("exiftool too did not find tags in file ->", media_file)
-        return None
-
-def get_creation_date_from_filename(media_file) :
-    """Extract a date from supported names such as 20250724_075334.jpg or IMG-20150906-WA0007.jpg."""
-    lg.dbg("Trying to get date from filename")
-    filename = pathlib.Path(media_file).name
-    match = re.match(r"^(?:\d{8}_\d+|[^-]+-\d{8}(?:-|\.))", filename)
-    if not match :
-        lg.dbg("filename does not contain a supported date format: ", media_file)
-        return None
-    date_text = match.group(0).split('_')[0] if '_' in match.group(0) else match.group(0).split('-')[1]
-    try:
-        return datetime.strptime(date_text, "%Y%m%d")
-    except ValueError:
-        lg.dbg("unable to parse date from filename: ", media_file)
-        return None
-
-def exif_get_creation_date(media_file) :
-    lg.dbg("Trying to get date from EXIF data")
-    DATETAGS = ['Image DateTime', 'EXIF DateTimeOriginal', 'EXIF DateTimeDigitized']
-    with open(media_file, "rb") as f :
-        tags = exifread.process_file(f)
-        if not len(tags) :
-            #try to find the date from name of the file
-            lg.dbg("No tags available for file ->", media_file)
-#            fname = os.path.basename(media_file)
-            return None
-            #lg.dbg(tags)
-        media_date = None
-        if 'EXIF DateTimeOriginal' in tags :
-            media_date = tags['EXIF DateTimeOriginal']
-            lg.dbg("found EXIF DateTimeOriginal tag = ", media_date)
-        elif 'Image DateTime' in tags :
-            media_date = tags['Image DateTime']
-            lg.dbg("found Image DateTime tag = ", media_date)
-        elif 'EXIF File Modification Date/Time' in tags :
-            media_date = tags['EXIF File Modification Date/Time']
-            lg.dbg("found Image DateTime tag = ", media_date)
-        else :
-            lg.dbg("exif_get_creation_date -> No DateTime tags available for file ->", media_file)
-            return None
-        return datetime.strptime(str(media_date), "%Y:%m:%d %H:%M:%S")
-    return None
-
-handlers = {
-    ".jpg": [
-                exif_get_creation_date, get_creation_date_from_filename,
-                exiftool_get_creation_date_extened
-            ],
-    ".jpeg": [
-                exif_get_creation_date, get_creation_date_from_filename,
-                exiftool_get_creation_date_extened
-            ],
-    ".heic": [
-                exif_get_creation_date, get_creation_date_from_filename,
-                exiftool_get_creation_date, exiftool_get_creation_date_extened
-            ],
-    ".png": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
-    ".mov": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
-    ".mp4": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
-    ".3gp": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
-    ".m2ts": [exiftool_get_creation_date, get_creation_date_from_filename,  exiftool_get_creation_date_extened],
-    ".mts": [exiftool_get_creation_date, get_creation_date_from_filename, exiftool_get_creation_date_extened],
-}
-
-def get_media_file_creation_date(media_file) :
-    ext = pathlib.Path(media_file).suffix.lower()
-    hfunc = handlers.get(ext)
-    if not hfunc :
-        lg.err("No matching handlers for ", media_file)
-        return None
-    mdate = None
-    for func in hfunc :
-        mdate = func(media_file)
-        if mdate :
-            return mdate
-    return mdate
-
 def arrange_media_file(media_file, dest_dir, report, logonly = True):
     lg.dbg("X" * 50)
     lg.dbg("Arranging file :", media_file)
-    creation_date = get_media_file_creation_date(media_file)
+    creation_date = get_media_file_creation_date(media_file, lg, exiftool_path)
     if not creation_date :
         lg.err("unable to get the creation date for file", media_file)
         report.unable_to_get_creation_date_files.append(media_file)
@@ -225,6 +95,7 @@ def arrange_media_file(media_file, dest_dir, report, logonly = True):
     except Exception as e:
         lg.err("error -> {} - while moving file {} to directory {}".format(repr(e), media_file, media_dir))
         report.unable_to_process_files.append(media_file)
+
 
 if __name__ == "__main__" :
     argparser = argparse.ArgumentParser()
@@ -282,7 +153,10 @@ if __name__ == "__main__" :
         sys.exit()
     report = ProcessingReport()
     lg.dbg("Processing {} files".format(len(file_with_supported_extension)))
-    list(map(lambda f: arrange_media_file(os.path.join(srcdir, f), dstdir, report, logonly), file_with_supported_extension))
+    list(map(lambda f: arrange_media_file(
+                            os.path.join(srcdir, f),
+                            dstdir, report, logonly),
+                    file_with_supported_extension))
     lg.info("#" * 50)
     lg.info("Processing completed.")
     report.log_unprocessed_files(lg)
