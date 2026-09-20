@@ -1,10 +1,23 @@
+import os
 import subprocess
 import mlog
 
 class exiftoolWrap :
-    def __init__(self, exiftool, debug = False) :
+    def __init__(self, exiftool = None, debug = False) :
         self.__debug = debug
-        self.__exiftool = exiftool
+        l = mlog.log(debug=debug)
+
+        if os.name == "nt" :
+            if exiftool is None :
+                l.err("exiftool path is required")
+                return
+            self.__exiftool = exiftool
+        elif os.name == "posix" :
+            p = subprocess.run(["which", "exiftool"], capture_output=True, text=True)
+            if p.returncode != 0 or not p.stdout.strip() :
+                l.err("exiftool should be in path")
+                return
+            self.__exiftool = p.stdout.strip()
     def process_file(self, filename) :
         l = mlog.log(debug=True)
         try :
@@ -23,5 +36,10 @@ class exiftoolWrap :
         return o
 
 if __name__ == "__main__" :
-    e = exiftoolWrap('D:\Hobbies\mtools\py\exiftool.exe', True)
-    print(e.process_file('D:\Pictures\IMG-20150830-WA0020.jpg'))
+    if os.name == "nt" :
+        e = exiftoolWrap('D:\\Hobbies\\mtools\\py\\exiftool.exe', True)
+        print(e.process_file('D:\\Pictures\\IMG-20150830-WA0020.jpg'))
+    else :
+        e = exiftoolWrap(debug=True)
+        print(e.process_file('/home/v/Pictures/DSC02717.jpg'))
+
