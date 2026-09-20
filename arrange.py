@@ -2,16 +2,53 @@ import os
 import sys
 import argparse
 import pathlib
+import re
 import shutil
+from dataclasses import dataclass, field
 from datetime import datetime
 import exifread
 import exiftoolwrap
+import pprint
 
 import mlog
 import file_hash
 
 MOVE_FILE = False
+#MOVE_FILE = True
+
 exiftool_path = None
+
+@dataclass
+class ProcessingReport:
+    unable_to_get_creation_date_files: list[str] = field(default_factory=list)
+    same_file_at_target_files: list[str] = field(default_factory=list)
+    unable_to_process_files: list[str] = field(default_factory=list)
+    show_same_file_at_target_files: bool = False
+
+    def if_anything_to_log(self):
+        return bool(self.unable_to_get_creation_date_files or 
+                    self.same_file_at_target_files or
+                    self.unable_to_process_files)
+
+    def log_unprocessed_files(self, logger):
+        if not self.if_anything_to_log():
+            logger.info("All files processed successfully.")
+            return
+        logger.info("#" * 50)
+        logger.info("Log of unprocessed files:")
+        if self.unable_to_get_creation_date_files:
+            logger.err("Unable to get creation date for following files.")
+            logger.err(pprint.pformat(self.unable_to_get_creation_date_files))
+        if self.show_same_file_at_target_files:
+            logger.err("Unable to copy following files as there is already same file at the target location.")
+            logger.err(pprint.pformat(self.same_file_at_target_files))
+        else:
+            logger.info("There are {} files which were not copied as there is already same file at the target location.".format(len(self.same_file_at_target_files)))
+        if self.unable_to_process_files:
+            logger.err("Unable to process following files.")
+            logger.err(pprint.pformat(self.unable_to_process_files))
+        logger.info("#" * 50)
+
 
 def exiftool_get_creation_date_extened(media_file):
     lg.dbg("Trying to get date (extended) using exiftool")
@@ -66,16 +103,19 @@ def exiftool_get_creation_date(media_file) :
         return None
 
 def get_creation_date_from_filename(media_file) :
+    """Extract a date from supported names such as 20250724_075334.jpg or IMG-20150906-WA0007.jpg."""
     lg.dbg("Trying to get date from filename")
-    # break down filename like IMG-20150906-WA0007.jpg
-    m = media_file.split('-')
-    if len(m) < 2 :
-        lg.dbg("length of {} after split is {}".format("media_file", len(m)))
+    filename = pathlib.Path(media_file).name
+    match = re.match(r"^(?:\d{8}_\d+|[^-]+-\d{8}(?:-|\.))", filename)
+    if not match :
+        lg.dbg("filename does not contain a supported date format: ", media_file)
         return None
-    if not m[1].isnumeric() :
-        lg.dbg("second position of {} is not numeric[{}]".format(media_file, m[1]))
+    date_text = match.group(0).split('_')[0] if '_' in match.group(0) else match.group(0).split('-')[1]
+    try:
+        return datetime.strptime(date_text, "%Y%m%d")
+    except ValueError:
+        lg.dbg("unable to parse date from filename: ", media_file)
         return None
-    return datetime.strptime(m[1], "%Y%m%d")
 
 def exif_get_creation_date(media_file) :
     lg.dbg("Trying to get date from EXIF data")
@@ -99,7 +139,7 @@ def exif_get_creation_date(media_file) :
             media_date = tags['EXIF File Modification Date/Time']
             lg.dbg("found Image DateTime tag = ", media_date)
         else :
-            lg.err("exif_get_creation_date -> No DateTime tags available for file ->", media_file)
+            lg.dbg("exif_get_creation_date -> No DateTime tags available for file ->", media_file)
             return None
         return datetime.strptime(str(media_date), "%Y:%m:%d %H:%M:%S")
     return None
@@ -138,12 +178,13 @@ def get_media_file_creation_date(media_file) :
             return mdate
     return mdate
 
-def arrange_media_file(media_file, dest_dir, logonly = True):
+def arrange_media_file(media_file, dest_dir, report, logonly = True):
     lg.dbg("X" * 50)
     lg.dbg("Arranging file :", media_file)
     creation_date = get_media_file_creation_date(media_file)
     if not creation_date :
         lg.err("unable to get the creation date for file", media_file)
+        report.unable_to_get_creation_date_files.append(media_file)
         return False
     
     year_dir = os.path.join(dest_dir, str(creation_date.year))
@@ -165,6 +206,7 @@ def arrange_media_file(media_file, dest_dir, logonly = True):
             shash = file_hash.get_file_hash(media_file)
             if thash[1] == shash[1]:
                 lg.dbg("target file {} and source file {} seems to be same. Skipping copying...".format(targetfile, media_file))
+                report.same_file_at_target_files.append(media_file)
                 return
             #append __1 to the file name & hope this file does not exist"
             tmp_media_file = os.path.basename(media_file).split(".")
@@ -182,6 +224,7 @@ def arrange_media_file(media_file, dest_dir, logonly = True):
                 shutil.copy2(media_file, media_dir)
     except Exception as e:
         lg.err("error -> {} - while moving file {} to directory {}".format(repr(e), media_file, media_dir))
+        report.unable_to_process_files.append(media_file)
 
 if __name__ == "__main__" :
     argparser = argparse.ArgumentParser()
@@ -237,7 +280,11 @@ if __name__ == "__main__" :
     if not len(file_with_supported_extension) :
         lg.err("No files with supported extension to be processed")
         sys.exit()
+    report = ProcessingReport()
     lg.dbg("Processing {} files".format(len(file_with_supported_extension)))
-    list(map(lambda f: arrange_media_file(os.path.join(srcdir, f), dstdir, logonly), file_with_supported_extension))
+    list(map(lambda f: arrange_media_file(os.path.join(srcdir, f), dstdir, report, logonly), file_with_supported_extension))
+    lg.info("#" * 50)
+    lg.info("Processing completed.")
+    report.log_unprocessed_files(lg)
     sys.exit()
  
