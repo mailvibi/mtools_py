@@ -72,6 +72,8 @@ python arrange.py \
 
 If a destination filename already exists, files with the same SHA-256 hash are skipped. A different file is renamed with a `__1` suffix before moving or copying. Files without a supported extension, or without a usable date, are reported and left untouched.
 
+After processing, the script reports filenames that could not be dated, files skipped because the same content already exists at the destination, and file operations that failed.
+
 ## Find duplicate files
 
 `find_dup.py` recursively scans a directory, first grouping files by size and then comparing SHA-256 hashes. Duplicate groups are written as JSON records containing `orig` and `dup` lists.
