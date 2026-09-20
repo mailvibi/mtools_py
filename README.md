@@ -54,9 +54,11 @@ Required options:
 Optional options:
 
 - `--recurse`: scan subdirectories recursively. Without it, only files directly in the source directory are scanned.
-- `--logonly`: report the planned moves without changing files. Moves are performed by default.
+- `--logonly`: report the planned file operations without changing files. Moves or copies are performed by default.
 - `--logfile FILE`: write the log to a file.
 - `--d`: enable debug logging.
+
+The global `MOVE_FILE` setting in `arrange.py` controls the operation: its default value, `True`, moves files; set it to `False` to copy files instead. Copying uses `shutil.copy2` and leaves the source files in place. `--logonly` takes precedence over both operations.
 
 Example dry run:
 
@@ -68,7 +70,7 @@ python arrange.py \
   --logonly
 ```
 
-If a destination filename already exists, files with the same SHA-256 hash are skipped. A different file is renamed with a `__1` suffix before moving. Files without a supported extension, or without a usable date, are reported and left untouched.
+If a destination filename already exists, files with the same SHA-256 hash are skipped. A different file is renamed with a `__1` suffix before moving or copying. Files without a supported extension, or without a usable date, are reported and left untouched.
 
 ## Find duplicate files
 

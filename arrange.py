@@ -10,6 +10,7 @@ import exiftoolwrap
 import mlog
 import file_hash
 
+MOVE_FILE = False
 exiftool_path = None
 
 def exiftool_get_creation_date_extened(media_file):
@@ -108,6 +109,10 @@ handlers = {
                 exif_get_creation_date, get_creation_date_from_filename,
                 exiftool_get_creation_date_extened
             ],
+    ".jpeg": [
+                exif_get_creation_date, get_creation_date_from_filename,
+                exiftool_get_creation_date_extened
+            ],
     ".heic": [
                 exif_get_creation_date, get_creation_date_from_filename,
                 exiftool_get_creation_date, exiftool_get_creation_date_extened
@@ -168,9 +173,13 @@ def arrange_media_file(media_file, dest_dir, logonly = True):
             lg.info("target file {} already exists, changing name to {}".format(targetfile, newtargetfile))
             media_dir = newtargetfile
     try:
-        lg.info("[MOVE][{}]-[{}]".format(media_file, media_dir))
+        operation = "MOVE" if MOVE_FILE else "COPY"
+        lg.info("[{}][{}]-[{}]".format(operation, media_file, media_dir))
         if not logonly:
-            shutil.move(media_file, media_dir)
+            if MOVE_FILE:
+                shutil.move(media_file, media_dir)
+            else:
+                shutil.copy2(media_file, media_dir)
     except Exception as e:
         lg.err("error -> {} - while moving file {} to directory {}".format(repr(e), media_file, media_dir))
 
@@ -215,8 +224,9 @@ if __name__ == "__main__" :
                 files.append(os.path.join(root, fname))
     else:
         files = list(filter(lambda x: os.path.isfile(os.path.join(srcdir, x)), os.listdir(srcdir)))
-#    lg.dbg(files)
-    lg.dbg("supported extensions : ", supported_extensions)
+    lg.dbg(f"srcdir = {srcdir}, dstdir = {dstdir}, logonly = {logonly}, recurse = {recurse}")
+    #lg.dbg(f"files = {files}")
+    lg.dbg("supported extensions : {}", supported_extensions)
     lg.dbg("Found {} files in directory {}".format(len(files), srcdir))
     file_with_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix in supported_extensions or pathlib.Path(x).suffix in u_supported_ext, files))
     file_without_supported_extension=list(filter(lambda x : pathlib.Path(x).suffix not in supported_extensions and pathlib.Path(x).suffix not in u_supported_ext, files))
