@@ -1,6 +1,9 @@
 import os
 import subprocess
+import sys
 import mlog
+
+EXIFTOOL_PATH = "EXIFTOOL_PATH"
 
 class exiftoolWrap :
     def __init__(self, exiftool = None, debug = False) :
@@ -37,7 +40,12 @@ class exiftoolWrap :
 
 if __name__ == "__main__" :
     if os.name == "nt" :
-        e = exiftoolWrap('D:\\Hobbies\\mtools\\py\\exiftool.exe', True)
+        exiftool_path = os.environ.get(EXIFTOOL_PATH)
+        l = mlog.log(debug=True)
+        if not exiftool_path :
+            l.err("EXIFTOOL_PATH environment variable is not set")
+            sys.exit(1)
+        e = exiftoolWrap(exiftool_path, True)
         print(e.process_file('D:\\Pictures\\IMG-20150830-WA0020.jpg'))
     else :
         e = exiftoolWrap(debug=True)

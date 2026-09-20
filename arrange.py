@@ -10,9 +10,11 @@ import exiftoolwrap
 import mlog
 import file_hash
 
+exiftool_path = None
+
 def exiftool_get_creation_date_extened(media_file):
-    lg.dbg("Trying to get date using exiftool")
-    e = exiftoolwrap.exiftoolWrap(r'D:\Hobbies\mtools\py\exiftool.exe', True)
+    lg.dbg("Trying to get date (extended) using exiftool")
+    e = exiftoolwrap.exiftoolWrap(exiftool_path, True)
     tags = e.process_file(media_file)
     if len(tags) :
         media_date = ""
@@ -37,7 +39,7 @@ def exiftool_get_creation_date_extened(media_file):
 
 def exiftool_get_creation_date(media_file) :
     lg.dbg("Trying to get date using exiftool")
-    e = exiftoolwrap.exiftoolWrap(r'D:\Hobbies\mtools\py\exiftool.exe', True)
+    e = exiftoolwrap.exiftoolWrap(exiftool_path, True)
     tags = e.process_file(media_file)
     if len(tags) :
         media_date = ""
@@ -193,6 +195,11 @@ if __name__ == "__main__" :
     recurse = args.recurse
 
     lg = mlog.log(args.logfile, args.d)
+    if os.name == "nt" :
+        exiftool_path = os.environ.get(exiftoolwrap.EXIFTOOL_PATH)
+        if not exiftool_path :
+            lg.err("EXIFTOOL_PATH environment variable is not set")
+            sys.exit(1)
     #repr(srcdir)
     if not os.path.isdir(srcdir) :
         lg.err("Source directory[{}] Invalid", srcdir)

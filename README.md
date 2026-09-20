@@ -18,10 +18,17 @@ The current requirements file contains `ExifRead==3.5.1`, which is used by `arra
 `arrange.py` uses ExifTool as a fallback for formats and files that do not provide usable EXIF dates. The current code expects the executable at:
 
 ```text
-D:\Hobbies\mtools\py\exiftool.exe
+EXIFTOOL_PATH
 ```
 
-Update the two ExifTool paths in `arrange.py` before using that fallback on another machine. The bundled `exiftool.exe` can be used on Windows; Linux users should install a compatible ExifTool executable and update the path.
+On Windows, set the `EXIFTOOL_PATH` environment variable to the executable path before running the scripts. The variable is checked by the script entry point and the program exits with an error if it is missing. For example, in Command Prompt:
+
+```bat
+set EXIFTOOL_PATH=C:\Tools\exiftool.exe
+python arrange.py --srcdir C:\Pictures\inbox --dstdir C:\Pictures\organized
+```
+
+The bundled `exiftool.exe` can be used on Windows. On Linux, install `exiftool` and make sure it is available on `PATH`.
 
 ## Arrange media by date
 
